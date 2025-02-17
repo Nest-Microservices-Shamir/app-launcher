@@ -1,4 +1,4 @@
-version: '3'
+name: 'microservice'
 
 services:
 
@@ -8,6 +8,9 @@ services:
       - 8222:8222
 
   client-gateway:
+    depends_on:
+      - products-ms
+      - orders-ms
     build: ./client-gateway
     ports:
       - ${CLIENT_GATEWAY_PORT}:3000
