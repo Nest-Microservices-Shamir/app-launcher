@@ -3,12 +3,16 @@ name: 'microservice'
 services:
 
   nats-server:
+    container_name: NatsServer
     image: nats:latest
     ports:
       - 8222:8222
 
   client-gateway:
+    container_name: ClientGateway
     depends_on:
+      - users-ms
+      - auth-ms
       - products-ms
       - orders-ms
     build: ./client-gateway
@@ -19,46 +23,83 @@ services:
     command: npm run start:dev
     environment:
       - PORT=3000
-      - NATS_SERVERS=nats://nats-server:4222
+      - NATS_SERVERS=${NATS_SERVERS}
+  
+  database:
+    container_name: PostgreSQL
+    image: postgres:16.2
+    restart: always
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    ports:
+      - 5435:${POSTGRES_PORT}
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}   
+  
+  auth-ms:
+    depends_on:
+      - users-ms
+    container_name: Auth-MS
+    build: ./auth-ms
+    volumes:
+      - ./auth-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=3004
+      - NATS_SERVERS=${NATS_SERVERS}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCES_TOKEN_LIFETIME=${JWT_ACCES_TOKEN_LIFETIME}
+      - JWT_REFRESH_TOKEN_LIFETIME=${JWT_REFRESH_TOKEN_LIFETIME}
+
+  users-ms:
+    container_name: User-MS
+    depends_on:
+      - database
+    build: ./users-ms
+    volumes:
+      - ./users-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=3005
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DB_HOST=database
+      - DB_PORT=${POSTGRES_PORT}
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
   
   products-ms:
+    container_name: Products-MS
+    depends_on:
+      - database
     build: ./products-ms
     volumes:
       - ./products-ms/src:/usr/src/app/src
     command: npm run start:dev
     environment:
       - PORT=3001
-      - NATS_SERVERS=nats://nats-server:4222
-      - DATABASE_URL=file:./dev.db
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DB_HOST=database
+      - DB_PORT=${POSTGRES_PORT}
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
 
   orders-ms:
+    container_name: Orders-MS
     depends_on:
-      - orders-db
+      - database
     build: ./orders-ms
     volumes:
       - ./orders-ms/src:/usr/src/app/src
     command: npm run start:dev
     environment:
       - PORT=3002
-      - DB_HOST=orders-db
-      - DB_PORT=5432
-      - DB_NAME=ordersdb
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - NATS_SERVERS=nats://nats-server:4222
-
-  orders-db:
-    container_name: orders_database
-    image: postgres:16.2
-    restart: always
-    volumes:
-      - ./orders-ms/postgres:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ordersdb
-      
-
-
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DB_HOST=database
+      - DB_PORT=${POSTGRES_PORT}
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}

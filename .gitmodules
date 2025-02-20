@@ -10,3 +10,6 @@
 [submodule "auth-ms"]
 	path = auth-ms
 	url = https://github.com/Nest-Microservices-Shamir/auth-ms.git
+[submodule "users-ms"]
+	path = users-ms
+	url = https://github.com/Nest-Microservices-Shamir/users-ms.git
